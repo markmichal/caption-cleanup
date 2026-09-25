@@ -2,8 +2,8 @@ CAPTION CLEANUP
 Cru High School Ministry · Innovation team
 
 What it does
-  Fixes YouTube auto captions. It changes "Crew" to "Cru" and takes out "um" and "uh."
-  It never changes any other words or any timestamps.
+  Fixes YouTube auto captions. It changes "Crew" to "Cru" and takes out "um," "uh"
+  and [Music]. It never changes any other words or any timestamps.
 
 How to use it
   1. Download the auto captions from YouTube Studio (.sbv, .srt or .vtt).
@@ -17,7 +17,15 @@ How to use it
 Good to know
   - It works offline. Your caption files never leave your computer.
   - One file at a time.
-  - If a whole caption is only "um" or "uh," it is left alone so no caption ends up blank.
+  - If a caption has nothing left after the fixes (like one that only said [Music]),
+    that whole caption is taken out.
+
+Adding your own fixes
+  On the first screen, under "What it fixes":
+  - Pick "Remove" to take words out, like [Applause].
+  - Pick "Change" to swap words, like "crue" to "Cru".
+  Type the words and click "Add fix." Your fixes are saved in your own web browser,
+  so each teammate adds their own. Click the x on a fix to delete it.
 
 Sharing with a teammate
   Send them this whole folder (for example, zip it or put it in Google Drive).

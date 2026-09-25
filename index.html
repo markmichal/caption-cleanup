@@ -112,6 +112,21 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
 .change.undone .row.after .tag { color: var(--cs-color-neutral-on-quiet, #565652); }
 .clean-note { padding: 24px; color: var(--cs-color-text-quiet, #565652); }
 
+/* Fixes panel */
+.fixes-card { width: 100%; max-width: 880px; background: #fff; border-radius: 12px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.fixes-card h2 { font-size: 20px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.chips .group { font-size: 14px; font-weight: 600; color: var(--cs-color-text-quiet, #565652); margin-right: 4px; }
+.mine { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 12px; border-radius: 9999px; background: var(--cs-color-brand-fill-quiet, #fff2cc); border: 1px solid var(--cs-color-brand-border-quiet, #ffe48e); font-size: 14px; }
+.mine button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--cs-color-brand-on-quiet, #6c5702); }
+.mine button:hover { background: var(--cs-color-brand-border-quiet, #ffe48e); }
+.mine button:focus-visible { outline: 3px solid var(--black); outline-offset: 1px; }
+.none-yet { font-size: 14px; color: var(--cs-color-text-quiet, #565652); }
+.add-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.add-form cs-select { width: 140px; }
+.add-form cs-input { flex: 1 1 200px; min-width: 0; }
+.fine { margin: 0; font-size: 13px; color: var(--cs-color-text-quiet, #565652); }
+
 @media (max-width: 640px) {
   .change { grid-template-columns: 1fr; gap: 8px; }
   .meta { flex-direction: row; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding-top: 0; }
@@ -134,7 +149,7 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
 <main id="landing" class="landing">
   <div class="intro">
     <h1>Clean up YouTube captions</h1>
-    <p>Changes "Crew" to "Cru" and takes out "um" and "uh." Every other word and every timestamp stays exactly the same.</p>
+    <p>Changes "Crew" to "Cru" and takes out "um," "uh" and [Music], plus any fixes you add. Every other word and every timestamp stays exactly the same.</p>
   </div>
   <div id="drop" class="drop">
     <div class="bubble"><cs-icon name="upload"></cs-icon></div>
@@ -155,12 +170,31 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
       <span id="error-text"></span>
     </cs-callout>
   </div>
-  <div class="fixes">
-    <span class="label">What it fixes:</span>
-    <cs-badge variant="neutral" appearance="filled-outlined" pill>Crew → Cru</cs-badge>
-    <cs-badge variant="neutral" appearance="filled-outlined" pill>removes "um"</cs-badge>
-    <cs-badge variant="neutral" appearance="filled-outlined" pill>removes "uh"</cs-badge>
-  </div>
+  <section class="fixes-card" aria-labelledby="fixes-title">
+    <h2 id="fixes-title">What it fixes</h2>
+    <div class="chips">
+      <span class="group">Always:</span>
+      <cs-badge variant="neutral" appearance="filled-outlined" pill>Crew → Cru</cs-badge>
+      <cs-badge variant="neutral" appearance="filled-outlined" pill>removes "um" and "uh"</cs-badge>
+      <cs-badge variant="neutral" appearance="filled-outlined" pill>removes [Music]</cs-badge>
+    </div>
+    <div class="chips" id="my-fixes">
+      <span class="group">Your fixes:</span>
+    </div>
+    <form id="add-form" class="add-form" autocomplete="off">
+      <cs-select id="rule-kind" label="Fix type" value="remove">
+        <cs-option value="remove">Remove</cs-option>
+        <cs-option value="change">Change</cs-option>
+      </cs-select>
+      <cs-input id="rule-find" label="Words to find" placeholder="like [Applause]"></cs-input>
+      <cs-input id="rule-to" label="Change them to" placeholder="like Cru" hidden></cs-input>
+      <cs-button id="rule-add" variant="neutral" appearance="filled-outlined" type="button">
+        <cs-icon slot="start" name="add"></cs-icon>
+        Add fix
+      </cs-button>
+    </form>
+    <p class="fine">Your fixes are saved in this web browser and used on every file you clean here. Capital letters don't matter, and it only matches whole words.</p>
+  </section>
   <button id="sample" class="sample" type="button">Try it with a sample file</button>
 </main>
 
@@ -187,14 +221,8 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
   </div>
   <cs-callout variant="success" appearance="filled-outlined">
     <cs-icon slot="icon" name="check_circle"></cs-icon>
-    Only "Crew" and the filler words "um" and "uh" were touched. Timestamps and every other word are exactly as YouTube made them.
+    <span id="touched"></span>
   </cs-callout>
-  <div id="skipped" hidden>
-    <cs-callout variant="information" appearance="filled-outlined">
-      <cs-icon slot="icon" name="info"></cs-icon>
-      <span id="skipped-text"></span>
-    </cs-callout>
-  </div>
   <section class="panel">
     <div class="panel-head"><span>Changed lines</span><span id="undo-hint">Not a real fix? Click "Undo this fix" to keep that line as it was.</span></div>
     <div id="changes"></div>
@@ -204,11 +232,87 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
 <script>
 (function () {
   var OK_TYPES = ['sbv', 'srt', 'vtt'];
-  var current = null;
+  var STORE_KEY = 'captionCleanup.myFixes';
+  var current = null, currentNote = '';
 
   var $ = function (id) { return document.getElementById(id); };
   var landing = $('landing'), results = $('results'), drop = $('drop'), picker = $('picker');
 
+  // ---- Your own fixes, saved in this browser ----
+  function loadFixes() {
+    try { var v = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+  }
+  function saveFixes(list) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch (e) { /* private window: fixes last until the page closes */ }
+  }
+  var myFixes = loadFixes();
+
+  function fixLabel(f) {
+    return f.kind === 'remove' ? 'removes ' + f.find : f.find + ' → ' + f.to;
+  }
+
+  function renderFixes() {
+    var box = $('my-fixes');
+    box.querySelectorAll('.mine, .none-yet').forEach(function (n) { n.remove(); });
+    if (!myFixes.length) {
+      var none = document.createElement('span');
+      none.className = 'none-yet';
+      none.textContent = 'None yet. Add one below.';
+      box.appendChild(none);
+      return;
+    }
+    myFixes.forEach(function (f) {
+      var chip = document.createElement('span');
+      chip.className = 'mine';
+      var t = document.createElement('span');
+      t.textContent = fixLabel(f);
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.setAttribute('aria-label', 'Delete the fix: ' + fixLabel(f));
+      x.innerHTML = '<cs-icon name="close"></cs-icon>';
+      x.addEventListener('click', function () {
+        myFixes = myFixes.filter(function (g) { return g.id !== f.id; });
+        saveFixes(myFixes);
+        renderFixes();
+      });
+      chip.appendChild(t); chip.appendChild(x);
+      box.appendChild(chip);
+    });
+  }
+
+  function kind() { return $('rule-kind').value === 'change' ? 'change' : 'remove'; }
+  function syncKind() {
+    var isChange = kind() === 'change';
+    $('rule-to').hidden = !isChange;
+    $('rule-find').setAttribute('placeholder', isChange ? 'like Crue' : 'like [Applause]');
+  }
+  $('rule-kind').addEventListener('change', syncKind);
+  $('rule-kind').addEventListener('input', syncKind);
+
+  function addFix(e) {
+    if (e) e.preventDefault();
+    $('error').hidden = true;
+    var find = String($('rule-find').value || '').trim();
+    var to = String($('rule-to').value || '').trim();
+    var k = kind();
+    if (!find) { showError('Type the words you want to find first.'); return; }
+    if (k === 'change' && !to) { showError('Type what "' + find + '" should change to.'); return; }
+    var dup = myFixes.some(function (f) { return f.find.toLowerCase() === find.toLowerCase(); });
+    if (dup) { showError('You already have a fix for "' + find + '". Delete that one first if you want to change it.'); return; }
+    myFixes.push({ id: 'my' + Date.now(), kind: k, find: find, to: k === 'change' ? to : '' });
+    saveFixes(myFixes);
+    $('rule-find').value = '';
+    $('rule-to').value = '';
+    renderFixes();
+  }
+  $("add-form").addEventListener("submit", function (e) { e.preventDefault(); });
+  $('rule-add').addEventListener('click', addFix);
+  ['rule-find', 'rule-to'].forEach(function (id) {
+    $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') addFix(e); });
+  });
+
+  // ---- Files ----
   function showError(msg) {
     $('error-text').textContent = msg;
     $('error').hidden = false;
@@ -231,13 +335,14 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
   }
 
   function run(text, name, note) {
-    var r = CaptionCleaner.processCaptions(text, name);
+    var r = CaptionCleaner.processCaptions(text, name, myFixes);
     if (!r.looksLikeCaptions) {
       showError('"' + name + '" doesn\'t have any caption timestamps in it. Make sure it\'s the caption file you downloaded from YouTube.');
       return;
     }
     current = r;
-    render(note);
+    currentNote = note;
+    render();
     landing.hidden = true;
     results.hidden = false;
     window.scrollTo(0, 0);
@@ -245,7 +350,7 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
 
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
-  function render(note) {
+  function render() {
     var r = current;
     var active = r.changes.filter(function (c) { return c.keep; }).length;
     $('file-name').textContent = r.fileName;
@@ -253,42 +358,39 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
     $('count').setAttribute('variant', r.changes.length ? 'brand' : 'neutral');
     $('download-label').textContent = 'Download clean .' + r.ext;
 
-    var parts = [];
-    if (r.totals.crews) parts.push('"Crew" changed to "Cru" ' + plural(r.totals.crews, 'time', 'times'));
-    if (r.totals.fillers) parts.push(plural(r.totals.fillers, 'filler word removed', 'filler words removed'));
+    var parts = Object.keys(r.totals).filter(function (k) { return r.totals[k] > 0; }).map(function (k) {
+      return r.labels[k] + (r.totals[k] > 1 ? ' (' + r.totals[k] + ' times)' : '');
+    });
     var sum = r.changes.length
       ? parts.join(' · ') + '. Look over the changes, then download the clean file. It\'s the same .' + r.ext + ' file type you put in, ready to re-upload to YouTube.'
       : 'Nothing needed fixing. This file is already clean, so there\'s no need to re-upload it.';
-    if (note) sum = note + ' ' + sum;
+    if (currentNote) sum = currentNote + ' ' + sum;
     $('summary-text').textContent = sum;
+    $('touched').textContent = 'Only the fixes listed above were made. Timestamps and every other word are exactly as YouTube made them. If a caption had nothing left in it (like one that only said [Music]), that whole caption was taken out.';
     $('download').hidden = !r.changes.length;
     $('undo-hint').hidden = !r.changes.length;
-
-    $('skipped').hidden = !r.skippedOnlyFiller;
-    $('skipped-text').textContent = r.skippedOnlyFiller
-      ? plural(r.skippedOnlyFiller, 'caption was', 'captions were') + ' only "um" or "uh" with nothing else. Those were left alone so no caption ends up blank.'
-      : '';
 
     var list = $('changes');
     list.innerHTML = '';
     if (!r.changes.length) {
       var d = document.createElement('div');
       d.className = 'clean-note';
-      d.textContent = 'No "Crew", "um" or "uh" found in the captions.';
+      d.textContent = 'None of the fixes found anything to change in these captions.';
       list.appendChild(d);
       return;
     }
     r.changes.forEach(function (c, i) {
       var row = document.createElement('div');
       row.className = 'change' + (c.keep ? '' : ' undone');
+      var afterText = c.wholeCaption
+        ? '<span class="empty">(whole caption removed, nothing was left in it)</span>'
+        : c.lineRemoved ? '<span class="empty">(line removed, nothing was left in it)</span>' : c.afterHtml;
       row.innerHTML =
         '<div class="meta"><div class="ln">Line ' + c.lineNumber + '</div><div class="ts"></div>' +
         '<button type="button" class="toggle"></button></div>' +
         '<div class="pair">' +
           '<div class="row before"><span class="tag">Before</span><span class="txt">' + c.beforeHtml + '</span></div>' +
-          '<div class="row after"><span class="tag">After</span><span class="txt">' +
-            (c.dropLine ? '<span class="empty">(line removed, it was only a filler word)</span>' : c.afterHtml) +
-          '</span></div>' +
+          '<div class="row after"><span class="tag">After</span><span class="txt">' + afterText + '</span></div>' +
         '</div>';
       row.querySelector('.ts').textContent = c.time;
       var btn = row.querySelector('.toggle');
@@ -296,7 +398,7 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
       btn.setAttribute('aria-label', (c.keep ? 'Undo the fix on line ' : 'Fix line ') + c.lineNumber);
       btn.addEventListener('click', function () {
         c.keep = !c.keep;
-        render(note);
+        render();
         var again = document.querySelectorAll('.toggle')[i];
         if (again) again.focus();
       });
@@ -331,11 +433,12 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
   $('again').addEventListener('click', reset);
   $('sample').addEventListener('click', function () {
     var sample = [
-      '0:00:00.000,0:00:03.500', 'um hi my name is Jordan and I\'m a junior', '',
-      '0:00:03.500,0:00:07.200', 'so I got involved with Crew my freshman year', '',
-      '0:00:07.200,0:00:11.000', 'and uh my friend invited me to a crew meeting', '',
-      '0:00:11.000,0:00:14.800', 'I was like um I don\'t really know anybody', '',
-      '0:00:14.800,0:00:18.300', 'but Crew kind of became my family', ''
+      '0:00:00.000,0:00:02.000', '[Music]', '',
+      '0:00:02.000,0:00:05.500', 'um hi my name is Jordan and I\'m a junior', '',
+      '0:00:05.500,0:00:09.200', 'so I got involved with Crew my freshman year', '',
+      '0:00:09.200,0:00:13.000', 'and uh my friend invited me to a crew meeting', '',
+      '0:00:13.000,0:00:16.800', 'I was like um I don\'t really know anybody [Music]', '',
+      '0:00:16.800,0:00:20.300', 'but Crew kind of became my family', ''
     ].join('\n');
     run(sample, 'sample-testimony.sbv', '');
   });
@@ -349,6 +452,9 @@ ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-
     e.preventDefault(); depth = 0; drop.classList.remove('over');
     if (!landing.hidden) handleFiles(e.dataTransfer.files);
   });
+
+  renderFixes();
+  syncKind();
 })();
 </script>
 </body>
