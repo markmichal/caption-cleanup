@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caption Cleanup</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="cornerstone/bundle.css">
+<script src="cornerstone/bundle.js"></script>
+<script src="cleaner.js"></script>
+<style>
+:root {
+  --yellow: #ffd000;
+  --on-yellow: #261d00;
+  --black: #000000;
+  --font-heading: Sora, ui-sans-serif, system-ui, sans-serif;
+  --font-body: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  background: var(--cs-color-surface-lowered, #f0efee);
+  color: var(--cs-color-text-normal, #1d1d1d);
+  display: flex;
+  flex-direction: column;
+}
+h1, h2 { font-family: var(--font-heading); font-weight: 800; line-height: 1.15; margin: 0; text-wrap: balance; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 clamp(16px, 4vw, 48px); min-height: 72px;
+  background: var(--cs-color-surface-default, #fff);
+  border-bottom: 4px solid var(--yellow);
+}
+.brand { display: flex; align-items: center; gap: 16px; }
+.brand img { height: 40px; width: auto; display: block; }
+.brand .rule { width: 1px; height: 28px; background: var(--cs-color-surface-border, #e5e6e5); }
+.brand .name { font-family: var(--font-heading); font-weight: 800; font-size: 20px; }
+.topbar .ministry { font-size: 14px; color: var(--cs-color-text-quiet, #565652); }
+
+/* Step 1: add a file */
+.landing {
+  flex-grow: 1; background: var(--yellow); color: var(--black);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 32px; padding: 48px clamp(16px, 4vw, 48px);
+}
+.intro { text-align: center; max-width: 720px; display: flex; flex-direction: column; gap: 12px; }
+.intro h1 { font-size: clamp(36px, 5vw, 52px); }
+.intro p { margin: 0; font-size: 20px; color: var(--on-yellow); }
+.drop {
+  width: 100%; max-width: 880px; min-height: 320px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 32px 16px; text-align: center;
+  background: #fff; border: 2px dashed var(--black); border-radius: 12px;
+  box-shadow: 0 8px 8px -4px rgba(18,18,18,0.12);
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+.drop.over { border-style: solid; transform: scale(1.01); }
+.drop .bubble {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--cs-color-brand-fill-quiet, #fff2cc); color: var(--cs-color-brand-on-quiet, #6c5702);
+  display: flex; align-items: center; justify-content: center; font-size: 36px;
+}
+.drop .big { font-family: var(--font-heading); font-weight: 800; font-size: 25px; line-height: 1.2; }
+.drop .hint { color: var(--cs-color-text-quiet, #565652); }
+.drop .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.drop .or { font-size: 14px; color: var(--cs-color-text-quiet, #565652); }
+.fixes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.fixes .label { font-size: 14px; font-weight: 600; color: var(--on-yellow); }
+.sample { background: none; border: 0; padding: 4px; font: inherit; font-size: 14px; color: var(--on-yellow); text-decoration: underline; cursor: pointer; }
+.sample:focus-visible, .toggle:focus-visible { outline: 3px solid var(--black); outline-offset: 1px; border-radius: 3px; }
+.error {
+  width: 100%; max-width: 880px;
+}
+
+/* Step 2: results */
+.results { width: 100%; max-width: 1080px; margin: 0 auto; padding: 40px clamp(16px, 4vw, 48px) 64px; display: flex; flex-direction: column; gap: 24px; }
+.summary { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.summary .left { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fileline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fileline cs-icon { font-size: 28px; color: var(--cs-color-text-quiet, #565652); }
+.fileline h1 { font-size: 32px; overflow-wrap: anywhere; }
+.summary p { margin: 0; color: var(--cs-color-text-quiet, #565652); }
+.summary .buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.panel { background: var(--cs-color-surface-raised, #fff); border: 1px solid var(--cs-color-surface-border, #e5e6e5); border-radius: 12px; overflow: hidden; }
+.panel-head { padding: 14px 24px; border-bottom: 1px solid var(--cs-color-surface-border, #e5e6e5); font-size: 14px; font-weight: 600; color: var(--cs-color-text-quiet, #565652); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.change { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 24px; padding: 16px 24px; border-bottom: 1px solid var(--cs-color-surface-border, #e5e6e5); }
+.change:last-child { border-bottom: 0; }
+.meta { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; }
+.meta .ln { font-size: 14px; font-weight: 600; }
+.meta .ts { font-size: 12px; color: var(--cs-color-text-quiet, #565652); font-variant-numeric: tabular-nums; }
+.toggle { margin-top: 8px; align-self: flex-start; background: none; border: 0; padding: 2px 0; font: inherit; font-size: 13px; color: var(--cs-color-text-link, #008192); text-decoration: underline; cursor: pointer; }
+.pair { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.row { display: flex; align-items: baseline; gap: 12px; padding: 8px 12px; border-radius: 6px; }
+.row .tag { width: 48px; flex-shrink: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.row .txt { overflow-wrap: anywhere; }
+.row.before { background: var(--cs-color-danger-fill-quiet, #fff0ef); }
+.row.before .tag { color: var(--cs-color-danger-on-quiet, #a62938); }
+.row.after { background: var(--cs-color-success-fill-quiet, #cbfedb); }
+.row.after .tag { color: var(--cs-color-success-on-quiet, #006637); }
+del { color: var(--cs-color-danger-on-normal, #851d2a); background: var(--cs-color-danger-fill-normal, #fededd); border-radius: 3px; padding: 0 2px; }
+ins { text-decoration: none; font-weight: 600; color: var(--cs-color-success-on-normal, #05502b); background: var(--cs-color-success-fill-normal, #a8f7c2); border-radius: 3px; padding: 0 2px; }
+.empty { color: var(--cs-color-text-quiet, #565652); font-style: italic; }
+.change.undone .pair { opacity: 0.45; }
+.change.undone .row.after { background: var(--cs-color-neutral-fill-quiet, #f0efee); }
+.change.undone .row.after .tag { color: var(--cs-color-neutral-on-quiet, #565652); }
+.clean-note { padding: 24px; color: var(--cs-color-text-quiet, #565652); }
+
+@media (max-width: 640px) {
+  .change { grid-template-columns: 1fr; gap: 8px; }
+  .meta { flex-direction: row; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding-top: 0; }
+  .toggle { margin-top: 0; }
+  .topbar .ministry { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .drop { transition: none; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <img src="assets/cru-brandmark.svg" alt="Cru">
+    <div class="rule"></div>
+    <div class="name">Caption Cleanup</div>
+  </div>
+  <div class="ministry">High School Ministry · Innovation team</div>
+</header>
+
+<main id="landing" class="landing">
+  <div class="intro">
+    <h1>Clean up YouTube captions</h1>
+    <p>Changes "Crew" to "Cru" and takes out "um" and "uh." Every other word and every timestamp stays exactly the same.</p>
+  </div>
+  <div id="drop" class="drop">
+    <div class="bubble"><cs-icon name="upload"></cs-icon></div>
+    <div class="big">Drag a caption file here</div>
+    <div class="hint">.sbv, .srt or .vtt · you'll get back the same file type</div>
+    <div class="actions">
+      <span class="or">or</span>
+      <cs-button id="choose" variant="brand" appearance="accent" size="l">
+        <cs-icon slot="start" name="folder"></cs-icon>
+        Choose a file
+      </cs-button>
+    </div>
+    <input id="picker" type="file" accept=".sbv,.srt,.vtt" hidden>
+  </div>
+  <div id="error" class="error" hidden>
+    <cs-callout variant="danger" appearance="filled-outlined">
+      <cs-icon slot="icon" name="error"></cs-icon>
+      <span id="error-text"></span>
+    </cs-callout>
+  </div>
+  <div class="fixes">
+    <span class="label">What it fixes:</span>
+    <cs-badge variant="neutral" appearance="filled-outlined" pill>Crew → Cru</cs-badge>
+    <cs-badge variant="neutral" appearance="filled-outlined" pill>removes "um"</cs-badge>
+    <cs-badge variant="neutral" appearance="filled-outlined" pill>removes "uh"</cs-badge>
+  </div>
+  <button id="sample" class="sample" type="button">Try it with a sample file</button>
+</main>
+
+<main id="results" class="results" hidden>
+  <div class="summary">
+    <div class="left">
+      <div class="fileline">
+        <cs-icon name="description"></cs-icon>
+        <h1 id="file-name"></h1>
+        <cs-badge id="count" variant="brand" appearance="filled" pill></cs-badge>
+      </div>
+      <p id="summary-text"></p>
+    </div>
+    <div class="buttons">
+      <cs-button id="again" variant="neutral" appearance="outlined">
+        <cs-icon slot="start" name="refresh"></cs-icon>
+        Clean another file
+      </cs-button>
+      <cs-button id="download" variant="brand" appearance="accent">
+        <cs-icon slot="start" name="download"></cs-icon>
+        <span id="download-label">Download clean file</span>
+      </cs-button>
+    </div>
+  </div>
+  <cs-callout variant="success" appearance="filled-outlined">
+    <cs-icon slot="icon" name="check_circle"></cs-icon>
+    Only "Crew" and the filler words "um" and "uh" were touched. Timestamps and every other word are exactly as YouTube made them.
+  </cs-callout>
+  <div id="skipped" hidden>
+    <cs-callout variant="information" appearance="filled-outlined">
+      <cs-icon slot="icon" name="info"></cs-icon>
+      <span id="skipped-text"></span>
+    </cs-callout>
+  </div>
+  <section class="panel">
+    <div class="panel-head"><span>Changed lines</span><span id="undo-hint">Not a real fix? Click "Undo this fix" to keep that line as it was.</span></div>
+    <div id="changes"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var OK_TYPES = ['sbv', 'srt', 'vtt'];
+  var current = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var landing = $('landing'), results = $('results'), drop = $('drop'), picker = $('picker');
+
+  function showError(msg) {
+    $('error-text').textContent = msg;
+    $('error').hidden = false;
+  }
+
+  function handleFiles(files) {
+    $('error').hidden = true;
+    if (!files || !files.length) return;
+    var file = files[0];
+    var ext = (file.name.match(/\.([^.]+)$/) || ['', ''])[1].toLowerCase();
+    if (OK_TYPES.indexOf(ext) === -1) {
+      showError('"' + file.name + '" isn\'t a caption file. Please pick a .sbv, .srt or .vtt file.');
+      return;
+    }
+    var note = files.length > 1 ? 'You dropped ' + files.length + ' files, so only the first one, "' + file.name + '", was cleaned.' : '';
+    var reader = new FileReader();
+    reader.onload = function () { run(String(reader.result), file.name, note); };
+    reader.onerror = function () { showError('That file couldn\'t be opened. Try downloading it from YouTube again.'); };
+    reader.readAsText(file);
+  }
+
+  function run(text, name, note) {
+    var r = CaptionCleaner.processCaptions(text, name);
+    if (!r.looksLikeCaptions) {
+      showError('"' + name + '" doesn\'t have any caption timestamps in it. Make sure it\'s the caption file you downloaded from YouTube.');
+      return;
+    }
+    current = r;
+    render(note);
+    landing.hidden = true;
+    results.hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+  function render(note) {
+    var r = current;
+    var active = r.changes.filter(function (c) { return c.keep; }).length;
+    $('file-name').textContent = r.fileName;
+    $('count').textContent = r.changes.length ? plural(active, 'change', 'changes') : 'No changes';
+    $('count').setAttribute('variant', r.changes.length ? 'brand' : 'neutral');
+    $('download-label').textContent = 'Download clean .' + r.ext;
+
+    var parts = [];
+    if (r.totals.crews) parts.push('"Crew" changed to "Cru" ' + plural(r.totals.crews, 'time', 'times'));
+    if (r.totals.fillers) parts.push(plural(r.totals.fillers, 'filler word removed', 'filler words removed'));
+    var sum = r.changes.length
+      ? parts.join(' · ') + '. Look over the changes, then download the clean file. It\'s the same .' + r.ext + ' file type you put in, ready to re-upload to YouTube.'
+      : 'Nothing needed fixing. This file is already clean, so there\'s no need to re-upload it.';
+    if (note) sum = note + ' ' + sum;
+    $('summary-text').textContent = sum;
+    $('download').hidden = !r.changes.length;
+    $('undo-hint').hidden = !r.changes.length;
+
+    $('skipped').hidden = !r.skippedOnlyFiller;
+    $('skipped-text').textContent = r.skippedOnlyFiller
+      ? plural(r.skippedOnlyFiller, 'caption was', 'captions were') + ' only "um" or "uh" with nothing else. Those were left alone so no caption ends up blank.'
+      : '';
+
+    var list = $('changes');
+    list.innerHTML = '';
+    if (!r.changes.length) {
+      var d = document.createElement('div');
+      d.className = 'clean-note';
+      d.textContent = 'No "Crew", "um" or "uh" found in the captions.';
+      list.appendChild(d);
+      return;
+    }
+    r.changes.forEach(function (c, i) {
+      var row = document.createElement('div');
+      row.className = 'change' + (c.keep ? '' : ' undone');
+      row.innerHTML =
+        '<div class="meta"><div class="ln">Line ' + c.lineNumber + '</div><div class="ts"></div>' +
+        '<button type="button" class="toggle"></button></div>' +
+        '<div class="pair">' +
+          '<div class="row before"><span class="tag">Before</span><span class="txt">' + c.beforeHtml + '</span></div>' +
+          '<div class="row after"><span class="tag">After</span><span class="txt">' +
+            (c.dropLine ? '<span class="empty">(line removed, it was only a filler word)</span>' : c.afterHtml) +
+          '</span></div>' +
+        '</div>';
+      row.querySelector('.ts').textContent = c.time;
+      var btn = row.querySelector('.toggle');
+      btn.textContent = c.keep ? 'Undo this fix' : 'Fix it again';
+      btn.setAttribute('aria-label', (c.keep ? 'Undo the fix on line ' : 'Fix line ') + c.lineNumber);
+      btn.addEventListener('click', function () {
+        c.keep = !c.keep;
+        render(note);
+        var again = document.querySelectorAll('.toggle')[i];
+        if (again) again.focus();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function download() {
+    if (!current) return;
+    var text = CaptionCleaner.buildOutput(current);
+    var base = current.fileName.replace(/\.[^.]+$/, '');
+    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = base + '-clean.' + current.ext;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  function reset() {
+    current = null;
+    picker.value = '';
+    results.hidden = true;
+    landing.hidden = false;
+    $('error').hidden = true;
+  }
+
+  $('choose').addEventListener('click', function () { picker.click(); });
+  picker.addEventListener('change', function () { handleFiles(picker.files); });
+  $('download').addEventListener('click', download);
+  $('again').addEventListener('click', reset);
+  $('sample').addEventListener('click', function () {
+    var sample = [
+      '0:00:00.000,0:00:03.500', 'um hi my name is Jordan and I\'m a junior', '',
+      '0:00:03.500,0:00:07.200', 'so I got involved with Crew my freshman year', '',
+      '0:00:07.200,0:00:11.000', 'and uh my friend invited me to a crew meeting', '',
+      '0:00:11.000,0:00:14.800', 'I was like um I don\'t really know anybody', '',
+      '0:00:14.800,0:00:18.300', 'but Crew kind of became my family', ''
+    ].join('\n');
+    run(sample, 'sample-testimony.sbv', '');
+  });
+
+  // Drag and drop anywhere on the page while on step 1.
+  var depth = 0;
+  window.addEventListener('dragenter', function (e) { e.preventDefault(); depth++; if (!landing.hidden) drop.classList.add('over'); });
+  window.addEventListener('dragleave', function () { depth = Math.max(0, depth - 1); if (!depth) drop.classList.remove('over'); });
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) {
+    e.preventDefault(); depth = 0; drop.classList.remove('over');
+    if (!landing.hidden) handleFiles(e.dataTransfer.files);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+CAPTION CLEANUP
+Cru High School Ministry · Innovation team
+
+What it does
+  Fixes YouTube auto captions. It changes "Crew" to "Cru" and takes out "um" and "uh."
+  It never changes any other words or any timestamps.
+
+How to use it
+  1. Download the auto captions from YouTube Studio (.sbv, .srt or .vtt).
+  2. Double-click "index.html" in this folder. It opens in your web browser.
+  3. Drag the caption file onto the page, or click "Choose a file."
+  4. Look over the Before and After list. If something isn't a real fix
+     (like "stage crew"), click "Undo this fix" on that line.
+  5. Click "Download clean ..." You get the same file type back, named
+     "<your file>-clean". Upload that file to YouTube.
+
+Good to know
+  - It works offline. Your caption files never leave your computer.
+  - One file at a time.
+  - If a whole caption is only "um" or "uh," it is left alone so no caption ends up blank.
+
+Sharing with a teammate
+  Send them this whole folder (for example, zip it or put it in Google Drive).
+  The page needs the other files in the folder to work, so don't send index.html by itself.
